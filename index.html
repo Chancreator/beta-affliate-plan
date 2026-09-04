@@ -36,7 +36,20 @@
 <script>
   const grid = document.getElementById('grid');
   const empty = document.getElementById('empty');
-  const list = (typeof PRODUCTS !== 'undefined') ? PRODUCTS : [];
+
+  // Prefer a local admin draft (so this browser's preview matches admin.html
+  // right after editing) and fall back to the published products.js file.
+  // Visitors to your live site won't have a draft in their browser, so they
+  // always see whatever is actually saved in products.js.
+  const list = loadProducts();
+
+  function loadProducts() {
+    try {
+      const raw = localStorage.getItem('shelf_products_draft');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return (typeof PRODUCTS !== 'undefined') ? PRODUCTS : [];
+  }
 
   if (list.length === 0) {
     empty.style.display = 'block';
