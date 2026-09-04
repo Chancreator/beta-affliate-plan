@@ -176,6 +176,25 @@ main {
   margin: 0 auto;
 }
 
+/* ---------- Lock screen ---------- */
+
+.lock-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.lock-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 340px;
+}
+
 /* ---------- Admin ---------- */
 
 .admin-body {
