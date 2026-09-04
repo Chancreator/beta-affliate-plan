@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — The Shelf</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <div>
+      <h1 class="site-title" style="font-size:1.6rem;">Admin</h1>
+    </div>
+    <a class="admin-link" href="index.html">View shop</a>
+  </div>
+</header>
+
+<div class="admin-wrap">
+
+  <div class="admin-note">
+    <strong>How this works:</strong> add or edit products below — changes are saved in this
+    browser as you go. When you're ready to publish, click <strong>Download products.js</strong>
+    and replace the <code>products.js</code> file in your site folder with the downloaded one,
+    then re-upload your site. That file is what every visitor's copy of the shop reads from.
+  </div>
+
+  <div class="panel">
+    <h2 id="form-title">Add a product</h2>
+    <form id="product-form">
+      <input type="hidden" id="edit-id">
+
+      <div class="field">
+        <label for="p-name">Product name</label>
+        <input type="text" id="p-name" required placeholder="e.g. Noise-cancelling headphones">
+      </div>
+
+      <div class="field">
+        <label for="p-desc">Description</label>
+        <textarea id="p-desc" placeholder="A sentence or two on what it is and why it's good"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="p-image">Picture</label>
+        <div class="image-row">
+          <input type="text" id="p-image" placeholder="Paste an image URL, or upload a file">
+          <button type="button" class="upload-btn" id="upload-btn">Upload file</button>
+          <input type="file" id="file-input" accept="image/*" style="display:none;">
+        </div>
+        <div class="image-preview" id="image-preview"><img id="preview-img" src=""></div>
+      </div>
+
+      <div class="field">
+        <label for="p-link">Affiliate link</label>
+        <input type="url" id="p-link" required placeholder="https://...">
+      </div>
+
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary" id="submit-btn">Add product</button>
+        <button type="button" class="btn btn-secondary" id="cancel-edit" style="display:none;">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Products (<span id="count">0</span>)</h2>
+    <div id="product-list"></div>
+  </div>
+
+  <div class="download-bar">
+    <p>Save your changes so they show up on the live site.</p>
+    <button class="btn btn-primary" id="download-btn">Download products.js</button>
+  </div>
+  <div class="status-msg" id="status"></div>
+
+</div>
+
+<script src="products.js"></script>
+<script>
+  const STORAGE_KEY = 'shelf_products_draft';
+
+  // Load: prefer a saved draft in this browser, otherwise fall back to products.js
+  let products = loadDraft();
+
+  function loadDraft() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return (typeof PRODUCTS !== 'undefined') ? JSON.parse(JSON.stringify(PRODUCTS)) : [];
+  }
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+    } catch (e) {}
+  }
+
+  const form = document.getElementById('product-form');
+  const listEl = document.getElementById('product-list');
+  const countEl = document.getElementById('count');
+  const submitBtn = document.getElementById('submit-btn');
+  const cancelBtn = document.getElementById('cancel-edit');
+  const formTitle = document.getElementById('form-title');
+  const statusEl = document.getElementById('status');
+  const imagePreview = document.getElementById('image-preview');
+  const previewImg = document.getElementById('preview-img');
+
+  document.getElementById('upload-btn').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+
+  document.getElementById('file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      document.getElementById('p-image').value = reader.result;
+      showPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('p-image').addEventListener('input', (e) => {
+    showPreview(e.target.value);
+  });
+
+  function showPreview(src) {
+    if (src) {
+      previewImg.src = src;
+      imagePreview.style.display = 'block';
+    } else {
+      imagePreview.style.display = 'none';
+    }
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+    countEl.textContent = products.length;
+
+    if (products.length === 0) {
+      listEl.innerHTML = '<p style="color:var(--ink-soft); font-size:0.88rem;">No products yet — add one above.</p>';
+      return;
+    }
+
+    products.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'product-row';
+      row.innerHTML = `
+        <div class="thumb">${p.image ? `<img src="${escapeHtml(p.image)}">` : escapeHtml(p.name.slice(0,2))}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(p.name)}</div>
+          <a class="link" href="${escapeHtml(p.link)}" target="_blank" rel="noopener">${escapeHtml(p.link)}</a>
+        </div>
+        <div class="row-actions">
+          <button class="icon-btn" data-edit="${p.id}" title="Edit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="icon-btn" data-delete="${p.id}" title="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+          </button>
+        </div>
+      `;
+      listEl.appendChild(row);
+    });
+
+    listEl.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', () => startEdit(Number(btn.dataset.edit)));
+    });
+    listEl.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', () => deleteProduct(Number(btn.dataset.delete)));
+    });
+  }
+
+  function startEdit(id) {
+    const p = products.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('edit-id').value = p.id;
+    document.getElementById('p-name').value = p.name;
+    document.getElementById('p-desc').value = p.description || '';
+    document.getElementById('p-image').value = p.image || '';
+    document.getElementById('p-link').value = p.link;
+    showPreview(p.image);
+    formTitle.textContent = 'Edit product';
+    submitBtn.textContent = 'Save changes';
+    cancelBtn.style.display = 'inline-block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function resetForm() {
+    form.reset();
+    document.getElementById('edit-id').value = '';
+    formTitle.textContent = 'Add a product';
+    submitBtn.textContent = 'Add product';
+    cancelBtn.style.display = 'none';
+    showPreview('');
+  }
+
+  cancelBtn.addEventListener('click', resetForm);
+
+  function deleteProduct(id) {
+    if (!confirm('Delete this product?')) return;
+    products = products.filter(p => p.id !== id);
+    saveDraft();
+    render();
+    setStatus('Deleted. Remember to download products.js to publish.');
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const editId = document.getElementById('edit-id').value;
+    const name = document.getElementById('p-name').value.trim();
+    const description = document.getElementById('p-desc').value.trim();
+    const image = document.getElementById('p-image').value.trim();
+    const link = document.getElementById('p-link').value.trim();
+
+    if (editId) {
+      const p = products.find(x => x.id === Number(editId));
+      if (p) { p.name = name; p.description = description; p.image = image; p.link = link; }
+      setStatus('Saved. Remember to download products.js to publish.');
+    } else {
+      const nextId = products.length ? Math.max(...products.map(p => p.id)) + 1 : 1;
+      products.push({ id: nextId, name, description, image, link });
+      setStatus('Added. Remember to download products.js to publish.');
+    }
+
+    saveDraft();
+    render();
+    resetForm();
+  });
+
+  document.getElementById('download-btn').addEventListener('click', () => {
+    const fileContent = `// PRODUCTS DATA — generated by admin.html
+// Replace the products.js file in your site with this one, then re-upload, to publish.
+
+const PRODUCTS = ${JSON.stringify(products, null, 2)};
+`;
+    const blob = new Blob([fileContent], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'products.js';
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('Downloaded products.js — replace it in your site folder to go live.');
+  });
+
+  function setStatus(msg) {
+    statusEl.textContent = msg;
+    setTimeout(() => { if (statusEl.textContent === msg) statusEl.textContent = ''; }, 4000);
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  render();
+</script>
+
+</body>
+</html>
