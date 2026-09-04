@@ -8,6 +8,20 @@
 </head>
 <body class="admin-body">
 
+<div id="lock-screen" class="lock-screen">
+  <form id="lock-form" class="lock-panel">
+    <h2 style="font-size:1.2rem; margin-bottom:1.25rem;">Admin access</h2>
+    <div class="field">
+      <label for="lock-password">Password</label>
+      <input type="password" id="lock-password" autocomplete="current-password" required autofocus>
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;">Unlock</button>
+    <div class="status-msg" id="lock-status"></div>
+  </form>
+</div>
+
+<div id="admin-content" style="display:none;">
+
 <header class="site-header">
   <div class="site-header-inner">
     <div>
@@ -76,8 +90,45 @@
 
 </div>
 
+</div>
+
 <script src="products.js"></script>
 <script>
+  // ---- Password gate ----
+  // The password isn't stored in plain text here (just its hash), but this is
+  // still a client-side check — anyone who reads this file's source could
+  // brute-force it offline. Good enough to keep casual visitors out, not a
+  // substitute for real auth if this data were sensitive.
+  const PASSWORD_HASH = '1fede252f5fd034b75f4140cf3407060474f4f2da68756944b0738063c2deeb8';
+  const SESSION_KEY = 'shelf_admin_unlocked';
+
+  async function sha256(text) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function showAdmin() {
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('admin-content').style.display = 'block';
+  }
+
+  if (sessionStorage.getItem(SESSION_KEY) === 'true') {
+    showAdmin();
+  }
+
+  document.getElementById('lock-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('lock-password').value;
+    const hash = await sha256(input);
+    if (hash === PASSWORD_HASH) {
+      sessionStorage.setItem(SESSION_KEY, 'true');
+      showAdmin();
+    } else {
+      document.getElementById('lock-status').textContent = 'Wrong password.';
+      document.getElementById('lock-password').value = '';
+    }
+  });
+
   const STORAGE_KEY = 'shelf_products_draft';
 
   // Load: prefer a saved draft in this browser, otherwise fall back to products.js
